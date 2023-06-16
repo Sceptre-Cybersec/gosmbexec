@@ -33,28 +33,28 @@ func NewPacketSMB2HeaderUnflat(Command []byte, CreditRequest []byte, Signing boo
 	messageID := make([]byte, 8)
 	binary.LittleEndian.PutUint16(messageID, uint16(MessageID))
 
-	SMB2Header := orderedmap.New()
-	SMB2Header.Set("ProtocolID", []byte{0xfe, 0x53, 0x4d, 0x42})
-	SMB2Header.Set("StructureSize", []byte{0x40, 0x00})
-	SMB2Header.Set("CreditCharge", []byte{0x01, 0x00})
-	SMB2Header.Set("ChannelSequence", []byte{0x00, 0x00})
-	SMB2Header.Set("Reserved", []byte{0x00, 0x00})
-	SMB2Header.Set("Command", Command)
-	SMB2Header.Set("CreditRequest", CreditRequest)
-	SMB2Header.Set("Flags", flags)
-	SMB2Header.Set("NextCommand", []byte{0x00, 0x00, 0x00, 0x00})
-	SMB2Header.Set("MessageID", messageID)
-	SMB2Header.Set("ProcessID", ProcessID)
-	SMB2Header.Set("TreeID", TreeID)
-	SMB2Header.Set("SessionID", SessionID)
-	SMB2Header.Set("Signature", []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
-	return SMB2Header
+	smb2Header := orderedmap.New()
+	smb2Header.Set("ProtocolID", []byte{0xfe, 0x53, 0x4d, 0x42})
+	smb2Header.Set("StructureSize", []byte{0x40, 0x00})
+	smb2Header.Set("CreditCharge", []byte{0x01, 0x00})
+	smb2Header.Set("ChannelSequence", []byte{0x00, 0x00})
+	smb2Header.Set("Reserved", []byte{0x00, 0x00})
+	smb2Header.Set("Command", Command)
+	smb2Header.Set("CreditRequest", CreditRequest)
+	smb2Header.Set("Flags", flags)
+	smb2Header.Set("NextCommand", []byte{0x00, 0x00, 0x00, 0x00})
+	smb2Header.Set("MessageID", messageID)
+	smb2Header.Set("ProcessID", ProcessID)
+	smb2Header.Set("TreeID", TreeID)
+	smb2Header.Set("SessionID", SessionID)
+	smb2Header.Set("Signature", []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
+	return smb2Header
 }
 
 func NewPacketSMB2Header(Command []byte, CreditRequest []byte, Signing bool, MessageID int, ProcessID []byte, TreeID []byte, SessionID []byte) []byte {
-	SMB2Header := NewPacketSMB2HeaderUnflat(Command, CreditRequest, Signing, MessageID, ProcessID, TreeID, SessionID)
+	smb2Header := NewPacketSMB2HeaderUnflat(Command, CreditRequest, Signing, MessageID, ProcessID, TreeID, SessionID)
 
-	return helpers.FlattenOrderedMap(*SMB2Header)
+	return helpers.FlattenOrderedMap(*smb2Header)
 }
 
 func NewPacketSMB2NegotiateProtocolRequest() []byte {

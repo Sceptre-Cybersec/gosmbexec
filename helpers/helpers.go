@@ -2,11 +2,28 @@ package helpers
 
 import (
 	"encoding/binary"
+	"fmt"
 	"os"
 	"strconv"
 
 	orderedmap "github.com/wk8/go-ordered-map"
 )
+
+type Logger struct {
+	Print bool
+}
+
+func (l *Logger) Println(out interface{}) {
+	if l.Print {
+		fmt.Println(out)
+	}
+}
+
+func (l *Logger) Printf(out string, vars ...interface{}) {
+	if l.Print {
+		fmt.Printf(out, vars...)
+	}
+}
 
 func FlattenMap(data map[string][]byte) []byte {
 	var flattened []byte

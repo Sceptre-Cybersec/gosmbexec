@@ -17,10 +17,6 @@ type SmbConfig struct {
 	SmbExecute   bool
 	Service      *string
 	SigningCheck bool
-	Session      *bool
-	Logoff       *bool
-	Refresh      *bool
-	Sleep        *int
 	Debug        *bool
 }
 
@@ -42,9 +38,9 @@ func calcNTLM(in string) string {
 	return hex.EncodeToString(mdfour.Sum(nil))
 }
 
-func NewSmbConfig(SmbVersion *string, Target *string, Username *string, Domain *string, Command *string, CommandSpec *string, Password *string, Hash *string, Service *string, Session *bool, Logoff *bool, Refresh *bool, Sleep *int, Debug *bool) SmbConfig {
+func NewSmbConfig(SmbVersion *string, Target *string, Username *string, Domain *string, Command *string, CommandSpec *string, Password *string, Hash *string, Service *string, Debug *bool) SmbConfig {
 	SigningCheck := false
-	if *Username == "" && *Password == "" && *Hash == "" && !*Session {
+	if *Username == "" && *Password == "" && *Hash == "" {
 		SigningCheck = true
 	}
 
@@ -64,10 +60,6 @@ func NewSmbConfig(SmbVersion *string, Target *string, Username *string, Domain *
 		SmbExecute,
 		Service,
 		SigningCheck,
-		Session,
-		Logoff,
-		Refresh,
-		Sleep,
 		Debug,
 	}
 }
