@@ -29,5 +29,5 @@ go-smbexec -u Administrator -p 'Password!' -h 127.0.0.1 -d lab.local -c 'echo te
 go-smbexec -u Administrator -hash fbdcd5041c96ddbd82224270b57f11fc -h 127.0.0.1 -d lab.local -c 'echo test C:\test.txt'
 ```
 
-**Created by:**
+**Created by:**  
  <a href="https://app.hackthebox.com/users/254685"><img src="http://www.hackthebox.eu/badge/image/254685" alt="Hack The Box"></a>
