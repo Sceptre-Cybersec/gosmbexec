@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"github.com/wadeking98/go-smbexec/smbexec"
+	"github.com/wadeking98/gosmbexec/smbexec"
 )
 
 func main() {

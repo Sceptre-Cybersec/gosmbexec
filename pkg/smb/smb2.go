@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 
-	"github.com/wadeking98/go-smbexec/helpers"
+	"github.com/wadeking98/gosmbexec/helpers"
 
 	orderedmap "github.com/wk8/go-ordered-map"
 )

@@ -1,6 +1,6 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Lifecycle:Maturing](https://img.shields.io/badge/Lifecycle-Maturing-007EC6)](https://github.com/bcgov/repomountie/blob/master/doc/lifecycle-badges.md)
-# go-smbexec
+# gosmbexec
 
 Go implementation of SMB exec.
 
@@ -18,15 +18,15 @@ I still had to do a lot of troubleshooting, but not nearly as much as if I imple
 ## Example usage:
 **Install:**
 ```bash
-go install github.com/wadeking98/go-smbexec@latest
+go install github.com/wadeking98/gosmbexec@latest
 ```
 
 **Usage:**
 ```bash
-go-smbexec -u Administrator -p 'Password!' -h 127.0.0.1 -d lab.local -c 'echo test C:\test.txt'
+gosmbexec -u Administrator -p 'Password!' -h 127.0.0.1 -d lab.local -c 'echo test C:\test.txt'
 ```
 ```bash
-go-smbexec -u Administrator -hash fbdcd5041c96ddbd82224270b57f11fc -h 127.0.0.1 -d lab.local -c 'echo test C:\test.txt'
+gosmbexec -u Administrator -hash fbdcd5041c96ddbd82224270b57f11fc -h 127.0.0.1 -d lab.local -c 'echo test C:\test.txt'
 ```
 
 **Created by:**  
