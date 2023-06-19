@@ -1,4 +1,4 @@
-module go-smbexec
+module github.com/wadeking98/go-smbexec
 
 go 1.20
 
