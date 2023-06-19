@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"math/rand"
 	"net"
 	"os"
@@ -33,14 +34,14 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 	}
 
 	processID := fmt.Sprintf("%x", helpers.GetCurrentProcessID())
-	processIDBytes, _ := hex.DecodeString(processID)
-	if len(processIDBytes) > 2 {
-		tempBytes := make([]byte, 2)
-		copy(tempBytes, processIDBytes[:2])
-		processIDBytes = tempBytes
-	}
-	processIDByteArray := make([]byte, 4)
-	copy(processIDByteArray[:], processIDBytes)
+
+	// make sure process id for smb1 is 2 bytes and for smb 2 it's 4 bytes
+	processIDSMB1, _ := hex.DecodeString(processID)
+	tempBytes := make([]byte, 2)
+	copy(tempBytes, processIDSMB1[:int(math.Min(2, float64(len(processIDSMB1))))])
+	processIDSMB1 = tempBytes
+	processIDSMB2 := make([]byte, 4)
+	copy(processIDSMB2[:], processIDSMB1)
 
 	target := host + ":" + strconv.Itoa(int(port))
 
@@ -86,7 +87,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 	for stage != "Exit" {
 		switch stage {
 		case "NegotiateSMB":
-			SMB_header := smb.NewPacketSMBHeader([]byte{0x72}, []byte{0x18}, []byte{0x01, 0x48}, []byte{0xff, 0xff}, processIDBytes, []byte{0x00, 0x00})
+			SMB_header := smb.NewPacketSMBHeader([]byte{0x72}, []byte{0x18}, []byte{0x01, 0x48}, []byte{0xff, 0xff}, processIDSMB1, []byte{0x00, 0x00})
 			SMB_data := smb.NewPacketSMBNegotiateProtocolRequest(*config.SmbVersion)
 			NetBIOS_session_service := pkg.NewPacketNetBIOSSessionService(len(SMB_header), len(SMB_data))
 			SMB_header = append(SMB_header, SMB_data...)
@@ -103,7 +104,6 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 				negotiation_failed = true
 				break
 			}
-
 			if bytes.Equal(clientRecieve[4:8], []byte{0xff, 0x53, 0x4d, 0x42}) {
 				*config.SmbVersion = "SMB1"
 				stage = "NTLMSSPNegotiate"
@@ -164,7 +164,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 
 			treeID = []byte{0x00, 0x00, 0x00, 0x00}
 			sessionID = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
-			smb2Header := smb.NewPacketSMB2Header([]byte{0x00, 0x00}, []byte{0x00, 0x00}, false, messageID, processIDByteArray[:], treeID, sessionID)
+			smb2Header := smb.NewPacketSMB2Header([]byte{0x00, 0x00}, []byte{0x00, 0x00}, false, messageID, processIDSMB2[:], treeID, sessionID)
 			smb2Data := smb.NewPacketSMB2NegotiateProtocolRequest()
 			NetBIOSsessionService := pkg.NewPacketNetBIOSSessionService(len(smb2Header), len(smb2Data))
 			clientSend := append(NetBIOSsessionService, append(smb2Header, smb2Data...)...)
@@ -197,7 +197,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 			}
 		case "NTLMSSPNegotiate":
 			if *config.SmbVersion == "SMB1" {
-				packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x73}, []byte{0x18}, []byte{0x07, 0xc8}, []byte{0xff, 0xff}, processIDBytes, []byte{0x00, 0x00})
+				packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x73}, []byte{0x18}, []byte{0x07, 0xc8}, []byte{0xff, 0xff}, processIDSMB1, []byte{0x00, 0x00})
 				if smbSigning {
 					packetSMBHeader.Set("Flags2", []byte{0x05, 0x48})
 				}
@@ -208,7 +208,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 				clientStream.Write(append(NetBIOSsessionService, append(smbHeader, smbData...)...))
 			} else {
 				messageID++
-				smb2Header := smb.NewPacketSMB2Header([]byte{0x01, 0x00}, []byte{0x1f, 0x00}, false, messageID, processIDByteArray[:], treeID, sessionID)
+				smb2Header := smb.NewPacketSMB2Header([]byte{0x01, 0x00}, []byte{0x1f, 0x00}, false, messageID, processIDSMB2[:], treeID, sessionID)
 				NTLMSSPNegotiate := pkg.NewPacketNTLMSSPNegotiate(negotiateFlags, []byte{})
 				smb2Data := smb.NewPacketSMB2SessionSetupRequest(NTLMSSPNegotiate)
 				NetBIOSsessionService := pkg.NewPacketNetBIOSSessionService(len(smb2Header), len(smb2Data))
@@ -338,7 +338,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 		var clientSend []byte
 		if *config.SmbVersion == "SMB1" {
 			SMBUserID = []byte{clientRecieve[32], clientRecieve[33]}
-			packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x73}, []byte{0x18}, []byte{0x07, 0xc8}, []byte{0xff, 0xff}, processIDBytes, SMBUserID)
+			packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x73}, []byte{0x18}, []byte{0x07, 0xc8}, []byte{0xff, 0xff}, processIDSMB1, SMBUserID)
 
 			if smbSigning {
 				packetSMBHeader.Set("Flags2", []byte{0x05, 0x48})
@@ -353,7 +353,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 			clientSend = append(clientSend, smbData...)
 		} else {
 			messageID++
-			smb2Header := smb.NewPacketSMB2Header([]byte{0x01, 0x00}, []byte{0x01, 0x00}, false, messageID, processIDByteArray[:], treeID, sessionID)
+			smb2Header := smb.NewPacketSMB2Header([]byte{0x01, 0x00}, []byte{0x01, 0x00}, false, messageID, processIDSMB2[:], treeID, sessionID)
 			NTLMSSPAuth := pkg.NewPacketNTLMSSPAuth(NTLMSSPResponse)
 			smb2Data := smb.NewPacketSMB2SessionSetupRequest(NTLMSSPAuth)
 			NetBIOSSessionService := pkg.NewPacketNetBIOSSessionService(len(smb2Header), len(smb2Data))
@@ -481,7 +481,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 						stage = "Exit"
 					}
 				case "CloseRequest":
-					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x04}, []byte{0x18}, []byte{0x07, 0xc8}, SMBTreeID, processIDByteArray[:], SMBUserID)
+					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x04}, []byte{0x18}, []byte{0x07, 0xc8}, SMBTreeID, processIDSMB2[:], SMBUserID)
 
 					if smbSigning {
 						smb.SetSmbSignitureAndFlags(packetSMBHeader, &SMBSigningCounter)
@@ -511,7 +511,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 						scmData = pkg.NewPacketSCMCloseServiceHandle(smbServiceManagerContextHandle)
 					}
 
-					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2f}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDBytes, SMBUserID)
+					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2f}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDSMB1, SMBUserID)
 
 					if smbSigning {
 						smb.SetSmbSignitureAndFlags(packetSMBHeader, &SMBSigningCounter)
@@ -539,7 +539,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 				case "CreateAndXRequest":
 					SMBNamedPipeBytes := []byte{0x5c, 0x73, 0x76, 0x63, 0x63, 0x74, 0x6c, 0x00} // \svcctl
 					SMBTreeID = clientRecieve[28:30]
-					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0xa2}, []byte{0x18}, []byte{0x02, 0x28}, SMBTreeID, processIDBytes, SMBUserID)
+					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0xa2}, []byte{0x18}, []byte{0x02, 0x28}, SMBTreeID, processIDSMB1, SMBUserID)
 
 					if smbSigning {
 						smb.SetSmbSignitureAndFlags(packetSMBHeader, &SMBSigningCounter)
@@ -561,7 +561,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 					stage = "RPCBind"
 
 				case "CreateServiceW":
-					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2f}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDBytes, SMBUserID)
+					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2f}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDSMB1, SMBUserID)
 
 					if smbSigning {
 						smb.SetSmbSignitureAndFlags(packetSMBHeader, &SMBSigningCounter)
@@ -590,7 +590,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 
 				// case "CreateServiceW_First":
 				// 	SMBSplitStageFinal := int(math.Ceil(float64(len(scmData)) / float64(smbSplitIndex)))
-				// 	packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2f}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDBytes, SMBUserID)
+				// 	packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2f}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDSMB1, SMBUserID)
 
 				// 	if smbSigning {
 				// 		smb.SetSmbSignitureAndFlags(packetSMBHeader, &SMBSigningCounter)
@@ -632,7 +632,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 						logger.Println("[-] Service failed to start on " + *config.Target)
 					}
 
-					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2f}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDBytes, SMBUserID)
+					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2f}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDSMB1, SMBUserID)
 
 					if smbSigning {
 						smb.SetSmbSignitureAndFlags(packetSMBHeader, &SMBSigningCounter)
@@ -663,7 +663,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 					smbCloseServiceHandleStage = 1
 
 				case "Logoff":
-					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x74}, []byte{0x18}, []byte{0x07, 0xc8}, []byte{0x34, 0xfe}, processIDBytes, SMBUserID)
+					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x74}, []byte{0x18}, []byte{0x07, 0xc8}, []byte{0x34, 0xfe}, processIDSMB1, SMBUserID)
 
 					if smbSigning {
 						smb.SetSmbSignitureAndFlags(packetSMBHeader, &SMBSigningCounter)
@@ -685,7 +685,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 					stage = "Exit"
 
 				case "OpenSCManagerW":
-					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2f}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDBytes, SMBUserID)
+					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2f}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDSMB1, SMBUserID)
 
 					if smbSigning {
 						smb.SetSmbSignitureAndFlags(packetSMBHeader, &SMBSigningCounter)
@@ -714,7 +714,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 
 				case "ReadAndXRequest":
 					time.Sleep(time.Duration(150) * time.Millisecond)
-					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2e}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDBytes, SMBUserID)
+					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2e}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDSMB1, SMBUserID)
 
 					if smbSigning {
 						smb.SetSmbSignitureAndFlags(packetSMBHeader, &SMBSigningCounter)
@@ -740,7 +740,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 					SMBFID = make([]byte, len(SMBFIDSlice))
 					copy(SMBFID, SMBFIDSlice)
 
-					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2f}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDBytes, SMBUserID)
+					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2f}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDSMB1, SMBUserID)
 					if smbSigning {
 						smb.SetSmbSignitureAndFlags(packetSMBHeader, &SMBSigningCounter)
 					}
@@ -770,7 +770,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 						smbServiceManagerContextHandle = make([]byte, len(smbServiceManagerContextHandleSlice))
 						copy(smbServiceManagerContextHandle, smbServiceManagerContextHandleSlice)
 
-						packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2f}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDBytes, SMBUserID)
+						packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x2f}, []byte{0x18}, []byte{0x05, 0x28}, SMBTreeID, processIDSMB1, SMBUserID)
 
 						if smbSigning {
 							smb.SetSmbSignitureAndFlags(packetSMBHeader, &SMBSigningCounter)
@@ -806,7 +806,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 						stage = "Exit"
 					}
 				case "TreeConnectAndXRequest":
-					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x75}, []byte{0x18}, []byte{0x01, 0x48}, []byte{0xff, 0xff}, processIDBytes, SMBUserID)
+					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x75}, []byte{0x18}, []byte{0x01, 0x48}, []byte{0xff, 0xff}, processIDSMB1, SMBUserID)
 
 					if smbSigning {
 						smb.SetSmbSignitureAndFlags(packetSMBHeader, &SMBSigningCounter)
@@ -827,7 +827,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 					conn.Read(clientRecieve)
 					stage = "CreateAndXRequest"
 				case "TreeDisconnect":
-					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x71}, []byte{0x18}, []byte{0x07, 0xc8}, SMBTreeID, processIDBytes, SMBUserID)
+					packetSMBHeader := smb.NewPacketSMBHeaderUnflat([]byte{0x71}, []byte{0x18}, []byte{0x07, 0xc8}, SMBTreeID, processIDSMB1, SMBUserID)
 
 					if smbSigning {
 						smb.SetSmbSignitureAndFlags(packetSMBHeader, &SMBSigningCounter)
@@ -892,7 +892,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 				case "CloseRequest":
 					stageCurrent = stage
 					messageID++
-					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x06, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDByteArray, treeID, sessionID)
+					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x06, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDSMB2, treeID, sessionID)
 
 					if smbSigning {
 						packetSMB2Header.Set("Flags", []byte{0x08, 0x00, 0x00, 0x00})
@@ -922,7 +922,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 					smbCloseServiceHandleStage++
 					stageCurrent = stage
 					messageID++
-					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x09, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDByteArray, treeID, sessionID)
+					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x09, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDSMB2, treeID, sessionID)
 
 					if smbSigning {
 						packetSMB2Header.Set("Flags", []byte{0x08, 0x00, 0x00, 0x00})
@@ -948,7 +948,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 					stageCurrent = stage
 					SMBNamedPipeBytes := []byte{0x73, 0x00, 0x76, 0x00, 0x63, 0x00, 0x63, 0x00, 0x74, 0x00, 0x6c, 0x00} // \svcctl
 					messageID++
-					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x05, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDByteArray, treeID, sessionID)
+					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x05, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDSMB2, treeID, sessionID)
 
 					if smbSigning {
 						packetSMB2Header.Set("Flags", []byte{0x08, 0x00, 0x00, 0x00})
@@ -979,7 +979,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 				case "CreateServiceW":
 					stageCurrent = stage
 					messageID++
-					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x09, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDByteArray, treeID, sessionID)
+					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x09, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDSMB2, treeID, sessionID)
 
 					if smbSigning {
 						packetSMB2Header.Set("Flags", []byte{0x08, 0x00, 0x00, 0x00})
@@ -1010,7 +1010,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 
 					stageCurrent = stage
 					messageID++
-					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x09, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDByteArray, treeID, sessionID)
+					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x09, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDSMB2, treeID, sessionID)
 
 					if smbSigning {
 						packetSMB2Header.Set("Flags", []byte{0x08, 0x00, 0x00, 0x00})
@@ -1035,7 +1035,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 				case "Logoff":
 					stageCurrent = stage
 					messageID++
-					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x02, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDByteArray, treeID, sessionID)
+					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x02, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDSMB2, treeID, sessionID)
 
 					if smbSigning {
 						packetSMB2Header.Set("Flags", []byte{0x08, 0x00, 0x00, 0x00})
@@ -1120,7 +1120,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 				case "OpenSCManagerW":
 					stageCurrent = stage
 					messageID++
-					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x09, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDByteArray, treeID, sessionID)
+					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x09, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDSMB2, treeID, sessionID)
 
 					if smbSigning {
 						packetSMB2Header.Set("Flags", []byte{0x08, 0x00, 0x00, 0x00})
@@ -1147,7 +1147,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 					time.Sleep(time.Duration(150) * time.Millisecond)
 					stageCurrent = stage
 					messageID++
-					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x08, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDByteArray, treeID, sessionID)
+					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x08, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDSMB2, treeID, sessionID)
 
 					if smbSigning {
 						packetSMB2Header.Set("Flags", []byte{0x08, 0x00, 0x00, 0x00})
@@ -1171,7 +1171,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 					stageCurrent = stage
 					// SMBNamedPipeBytes = []byte{0x73, 0x00, 0x76, 0x00, 0x63, 0x00, 0x63, 0x00, 0x74, 0x00, 0x6c, 0x00} // \svcctl
 					messageID++
-					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x09, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDByteArray, treeID, sessionID)
+					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x09, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDSMB2, treeID, sessionID)
 
 					if smbSigning {
 						packetSMB2Header.Set("Flags", []byte{0x08, 0x00, 0x00, 0x00})
@@ -1209,7 +1209,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 						copy(smbServiceContextHandle, smbServiceContextHandleSlice)
 						stageCurrent = stage
 						messageID++
-						packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x09, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDByteArray, treeID, sessionID)
+						packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x09, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDSMB2, treeID, sessionID)
 
 						if smbSigning {
 							packetSMB2Header.Set("Flags", []byte{0x08, 0x00, 0x00, 0x00})
@@ -1244,7 +1244,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 					treeID = clientRecieve[40:44]
 					messageID++
 					stageCurrent = stage
-					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x03, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDByteArray, treeID, sessionID)
+					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x03, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDSMB2, treeID, sessionID)
 
 					if smbSigning {
 						packetSMB2Header.Set("Flags", []byte{0x08, 0x00, 0x00, 0x00})
@@ -1274,7 +1274,7 @@ func RunDebug(host string, port uint16, username string, password string, hash s
 				case "TreeDisconnect":
 					stageCurrent = stage
 					messageID++
-					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x04, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDByteArray, treeID, sessionID)
+					packetSMB2Header := smb.NewPacketSMB2HeaderUnflat([]byte{0x04, 0x00}, []byte{0x01, 0x00}, smbSigning, messageID, processIDSMB2, treeID, sessionID)
 
 					if smbSigning {
 						packetSMB2Header.Set("Flags", []byte{0x08, 0x00, 0x00, 0x00})
