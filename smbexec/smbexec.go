@@ -8,9 +8,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"go-smbexec/helpers"
-	"go-smbexec/pkg"
-	"go-smbexec/pkg/smb"
 	"math/rand"
 	"net"
 	"os"
@@ -18,6 +15,10 @@ import (
 	"strings"
 	"time"
 	"unicode/utf16"
+
+	"github.com/wadeking98/go-smbexec/helpers"
+	"github.com/wadeking98/go-smbexec/pkg"
+	"github.com/wadeking98/go-smbexec/pkg/smb"
 )
 
 func Run(host string, port uint16, username string, password string, hash string, domain string, command string, commandCOMSPEC string, serviceName string, version string) {

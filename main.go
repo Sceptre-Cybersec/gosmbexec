@@ -2,7 +2,8 @@ package main
 
 import (
 	"flag"
-	"go-smbexec/smbexec"
+
+	"github.com/wadeking98/go-smbexec/smbexec"
 )
 
 func main() {
