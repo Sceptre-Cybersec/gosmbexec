@@ -12,7 +12,7 @@ I couldn't find any smbexec implementations that allow you to pass an NTLM hash,
 - doesn't support kerberos
 
 ## Credits:
-All credits go to https://github.com/Kevin-Robertson/Invoke-TheHash. I got pretty much all the code from there and used ChatGpt to translate it into golang.  
+All credits go to https://github.com/Kevin-Robertson/Invoke-TheHash. I got pretty much all the code from there and translated it into golang.  
 I still had to do a lot of troubleshooting, but not nearly as much as if I implemented it from scratch.
 
 ## Example usage:
